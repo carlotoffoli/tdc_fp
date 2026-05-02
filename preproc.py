@@ -54,11 +54,19 @@ def split_dataset(data: np.array):
     """
     return data[:, :-1], data[:, -1].reshape(-1, 1).astype(int)
 
-def filter_dataset(data: np.array) -> np.array:
+def filter_dataset(data: np.array, filter: callable) -> np.array:
     """
-    Filter out records with missing values
+    This can be used to filter data.
+    Data can be filtered either through columns or rows.
+    That should be decided by transposing the array:
+     - by rows: normal array
+     - by cols: transposed array
+
+    @param filter: must decide whether to add a row/col should be kept in data.
+                   It must accept a tuple as input (row/col index, data array)
+                   and return a bool.
     """
-    return np.array([row for row in data if not np.isnan(row).any()])
+    return np.array([data[index] for index in range(data.shape[0]) if filter((index, data[index]))])
 
 def standardize(x: np.array) -> np.array:
     return StandardScaler().fit_transform(x)
