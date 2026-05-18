@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler, Binarizer
+from sklearn.preprocessing import StandardScaler, Binarizer, OneHotEncoder
 
 def load_dataset(filename: str, drop_columns: list = None) -> pd.DataFrame:
     data = pd.read_csv(filename, delimiter=",")
@@ -46,6 +46,34 @@ def encode_feature(data: pd.DataFrame):
     # (useful to map the features back to their original value)
     return dataset.astype(float), unique_values
 
+def encode_dataset(dataframe: pd.DataFrame, categorical_features_indexes: list) -> np.array:
+    """
+    Dataset encoding through OneHotEncoder
+    This function encodes the categorical features into multiple binary features and gets rid of nan data.
+    Missing values are represented by all the binary features being set to 0.
+    """
+    feature_names = dataframe.columns
+    data = dataframe.to_numpy()
+    non_cat = np.delete(np.arange(data.shape[1]), categorical_features_indexes)
+    enc = OneHotEncoder(sparse_output=False)
+    encoded_columns = enc.fit_transform(np.delete(data, non_cat, axis=1))
+
+    index = 0
+    nan_categories = []
+    for feature in enc.categories_:
+        for category in feature:
+            if category is np.nan: nan_categories.append(index)
+            index += 1
+    
+    # could have used hstack
+    encoded_data = np.append(np.delete(encoded_columns, nan_categories, axis=1), np.delete(data, categorical_features_indexes, axis=1), axis=1)
+
+    encoded_feature_names = enc.get_feature_names_out([name for i, name in enumerate(feature_names) if i in categorical_features_indexes])
+    encoded_feature_names = [name for i, name in enumerate(encoded_feature_names) if i not in nan_categories]
+    encoded_feature_names += [name for i, name in enumerate(feature_names) if i in non_cat]
+
+    return encoded_data, encoded_feature_names
+
 def split_dataset(data: np.array):
     """
     Split the dataset into two arrays.
@@ -73,3 +101,9 @@ def standardize(x: np.array) -> np.array:
 
 def binarize(y: np.array) -> np.array:
     return Binarizer().fit_transform(y)
+
+if __name__ == '__main__':
+    csv_dataframe = load_dataset('tdc_fp/data/heart_disease_uci.csv', drop_columns=['id'])
+
+    dataset, feature_names = encode_dataset(csv_dataframe, [1,2,3,7,11,12,13])
+    print(dataset.shape, feature_names)

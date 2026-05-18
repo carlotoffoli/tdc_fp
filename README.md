@@ -1,2 +1,3 @@
+[![wakatime](https://wakatime.com/badge/user/b67fe7fe-50fa-4e45-9139-5650de269f5d/project/221dfcdb-f4c6-4aaa-b220-53189275ea26.svg)](https://wakatime.com/badge/user/b67fe7fe-50fa-4e45-9139-5650de269f5d/project/221dfcdb-f4c6-4aaa-b220-53189275ea26)
 # Binary classification over UCI heart disease dataset
 This project uses the dataset found at UCI's [website](https://archive.ics.uci.edu/dataset/45/heart+disease) (READ BEFORE USE).
