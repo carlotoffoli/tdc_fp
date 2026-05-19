@@ -3,13 +3,13 @@ from sklearn.model_selection import StratifiedKFold, cross_val_score, GridSearch
 from sklearn.linear_model import Perceptron
 from sklearn.svm import SVC
 
-def algo_selection(X_train, X_test, y_train, y_test, seed):
+def algo_selection(X_train, X_test, y_train, seed):
     # Confronto modelli con 5-fold CV solo sul training set (test set intoccato fino alla valutazione finale)
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state = seed)
     candidates = {
-        "Perceptron":          Perceptron(random_state=seed),
-        "SVM (Linear)":       SVC(kernel="linear", random_state=seed),
-        "SVM (Gaussian)":           SVC(kernel="rbf",    random_state=seed),
+        "Perceptron": Perceptron(random_state=seed),
+        "SVM (Linear)": SVC(kernel="linear", random_state=seed),
+        "SVM (Gaussian)": SVC(kernel="rbf", random_state=seed),
     }
 
     for name, m in candidates.items():

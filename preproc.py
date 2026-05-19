@@ -72,7 +72,7 @@ def encode_dataset(dataframe: pd.DataFrame, categorical_features_indexes: list) 
     encoded_feature_names = [name for i, name in enumerate(encoded_feature_names) if i not in nan_categories]
     encoded_feature_names += [name for i, name in enumerate(feature_names) if i in non_cat]
 
-    return encoded_data, encoded_feature_names
+    return encoded_data.astype(float), encoded_feature_names
 
 def split_dataset(data: np.array):
     """
