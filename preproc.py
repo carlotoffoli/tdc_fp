@@ -15,12 +15,16 @@ def feature_map_encoder(array: np.array, value_map: list) -> None:
     This function overwrites the given `array`!
     """
     for i in range(len(array)):
-        try:
-            # Find the string in the map
-            array[i] = value_map.index(array[i])
-        except ValueError:
-            print(array[i], value_map)
-            raise Exception("Invalid value map")
+        if type(array[i]) == float and np.isnan(array[i]) and np.isnan(value_map[-1]): 
+            # The value map accounts for nans and is ordered correctly
+            array[i] = len(value_map)
+        else:
+            try:
+                # Find the string in the map
+                array[i] = value_map.index(array[i])
+            except ValueError:
+                print(type(array[i]), np.isnan(array[i]))
+                raise Exception(f"Invalid value map: {array[i]} not in map {value_map}")
 
 def encode_dataset(data: np.array, encoded_features: list, value_map: list = None):
     """
@@ -56,7 +60,7 @@ def get_value_map(data: np.array, encoded_features: list):
         if feature != 0: # feature in encoded_features
             # Checking for nan in object arrays, this is the least problematic way
             for j, item in enumerate(feature):
-                if type(item) != str and isnan(item):
+                if type(item) == float and np.isnan(item):
                     break
             if j < len(feature) - 1:
                 # Found a nan, move it at the end
@@ -80,7 +84,7 @@ def get_value_map_sl(data: np.array):
     for feature in unordered_map:
         for j, item in enumerate(feature):
             # Checking for nan in object arrays, this is the least problematic way
-            if type(item) != str and isnan(item):
+            if type(item) != str and np.isnan(item):
                 break
         if j < feature.shape[0]-1:
             # Found a nan, move it at the end
@@ -103,7 +107,7 @@ def value_map_permutations_sl(value_map: list, encoded_features: list):
     all_permutations = []
     for i, a in enumerate(value_map):
         if i in encoded_features:
-            if a[-1] is np.nan:
+            if type(a[-1]) == float and np.isnan(a[-1]):
                 new = [list(i) + [a[-1],] for i in permutations(a[:-1])]
             else:
                 new = permutations(a)
@@ -125,7 +129,7 @@ def value_map_permutations(value_map: list, encoded_features: list):
     all_permutations = []
     for i, a in enumerate(value_map):
         if i in encoded_features:
-            if a[-1] is np.nan:
+            if type(a[-1]) == float and np.isnan(a[-1]):
                 new = [list(perm) + [a[-1],] for perm in permutations(a[:-1])]
             else:
                 new = permutations(a)
@@ -133,7 +137,7 @@ def value_map_permutations(value_map: list, encoded_features: list):
             new = [0,]
         all_permutations.append(new)
 
-    return [list(combi) for combi in product(*all_permutations)]
+    return product(*all_permutations)
         
 def encode_onehot(dataframe: pd.DataFrame, categorical_features_indexes: list) -> np.array:
     """
@@ -151,6 +155,7 @@ def encode_onehot(dataframe: pd.DataFrame, categorical_features_indexes: list) -
     nan_categories = []
     for feature in enc.categories_:
         for category in feature:
+            # TODO: fix isnan
             if category is np.nan: nan_categories.append(index)
             index += 1
     
@@ -203,9 +208,10 @@ if __name__ == '__main__':
     from util import accuracy
     # from sklearn.metrics import accuracy_score as accuracy
     from clustering import kmeans
+    from time import perf_counter as timer
 
-    encoded_features = [1,2,3,7,11] # TODO: Update when dropping features!
-    csv_dataframe = load_dataset('tdc_fp/data/heart_disease_uci.csv', drop_columns=['id', 'ca', 'thal'])
+    encoded_features = [1,2,3,7,11,12,13] # TODO: Update when dropping features!
+    csv_dataframe = load_dataset('tdc_fp/data/heart_disease_uci.csv', drop_columns=['id'])
 
     # dataset, feature_names = encode_onehot(csv_dataframe, encoded_features)
     # print(dataset.shape, feature_names)
@@ -217,8 +223,11 @@ if __name__ == '__main__':
     
     # Check all the value map permutations
     best_score = 0
-    for combination in value_map_permutations(value_map, encoded_features):
-        dataset, _ = encode_dataset(csv_dataframe.to_numpy(), encoded_features, combination)
+    start_time = timer()
+    combinations = value_map_permutations(value_map, encoded_features)
+    print(f"Time taken to compute permutations: {timer() - start_time:.2f} s")
+    for i, combination in enumerate(combinations):
+        dataset, _ = encode_dataset(csv_dataframe.to_numpy(), encoded_features, list(combination))
         feature_names = csv_dataframe.columns
 
         X, Y = split_dataset(filter_dataset(dataset, lambda x: not np.isnan(x[1]).any()))
@@ -230,6 +239,6 @@ if __name__ == '__main__':
         accu = max(accuracy(labels, Y), 1-accuracy(labels, Y))
         if accu > best_score:
             best_score = accu
-            best_map = combination
-            print(best_score)
+            best_map = (i, combination)
+            print("Best so far:", best_map[1], best_score)
     print(best_score, best_map)
