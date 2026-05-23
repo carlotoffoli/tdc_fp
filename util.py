@@ -55,3 +55,24 @@ def plot_clusters(X_pca, labels, title):
     ax.add_artist(legend1)
 
     plt.show()
+
+def error_plot(errors: np.ndarray, labels: np.ndarray = None) -> None:
+    """
+    Plot the errors
+
+    :param errors: errors to plot
+    """
+    
+    if labels is None:
+        plt.plot(errors[1:-1])
+        plt.plot(errors[1:-1], 'ro')
+    else:
+        plt.plot(labels, errors)
+        plt.plot(labels, errors, 'ro')
+    plt.title('Error Plot')
+    plt.ylabel('Error')
+    plt.xlabel('#')
+    plt.grid()
+    plt.tight_layout()
+    plt.show()
+    plt.close()

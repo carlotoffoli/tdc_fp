@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from math import factorial, isnan
+from math import isnan
 from itertools import permutations, product
 from sklearn.preprocessing import StandardScaler, Binarizer, OneHotEncoder, OrdinalEncoder
 
@@ -71,52 +71,6 @@ def get_value_map(data: np.array, encoded_features: list):
 
     return ordered_map
 
-def get_value_map_sl(data: np.array):
-    """
-    Obtain a valid value map to use with OrdinalEncoder
-    Ensure that all the np.nan values go to the end of each feature map
-    """
-
-    unordered_map = [pd.unique(col) for i, col in enumerate(data.T)]
-
-    ordered_map = []
-
-    for feature in unordered_map:
-        for j, item in enumerate(feature):
-            # Checking for nan in object arrays, this is the least problematic way
-            if type(item) != str and np.isnan(item):
-                break
-        if j < feature.shape[0]-1:
-            # Found a nan, move it at the end
-            feature[j] = feature[-1]
-            feature[-1] = np.nan
-
-        ordered_map.append(feature)
-
-    return ordered_map
-
-def value_map_permutations_sl(value_map: list, encoded_features: list):
-    """
-    This function computes all the permutations of the given value map
-
-    @param value_map: the value map provided by OrdinalEncoder
-    @param encoded_features: list of encoded features indexes
-    """
-
-    # Devo costruire una value map che contiene una combinazione di permutazioni degli array delle features
-    all_permutations = []
-    for i, a in enumerate(value_map):
-        if i in encoded_features:
-            if type(a[-1]) == float and np.isnan(a[-1]):
-                new = [list(i) + [a[-1],] for i in permutations(a[:-1])]
-            else:
-                new = permutations(a)
-        else:
-            new = [a,]
-        all_permutations.append(new)
-
-    return [list(combi) for combi in product(*all_permutations)]
-
 def value_map_permutations(value_map: list, encoded_features: list):
     """
     This function computes all the permutations of the given value map
@@ -155,7 +109,7 @@ def encode_onehot(dataframe: pd.DataFrame, categorical_features_indexes: list) -
     nan_categories = []
     for feature in enc.categories_:
         for category in feature:
-            # TODO: fix isnan
+            # This time nans were not a problem as they're all type float
             if category is np.nan: nan_categories.append(index)
             index += 1
     
@@ -167,14 +121,6 @@ def encode_onehot(dataframe: pd.DataFrame, categorical_features_indexes: list) -
     encoded_feature_names += [name for i, name in enumerate(feature_names) if i in non_cat]
 
     return encoded_data.astype(float), encoded_feature_names
-
-def encode_ordinal(data: np.array, value_map = []):
-    """
-    This function returns the ordinally encoded data 
-    along with the value map used to translate it.
-    """
-    enc = OrdinalEncoder(categories=value_map if value_map else 'auto').fit(data)
-    return enc.transform(data), enc.categories_
 
 def split_dataset(data: np.array):
     """
@@ -196,49 +142,70 @@ def filter_dataset(data: np.array, filter: callable) -> np.array:
                    It must accept a tuple as input (row/col index, data array)
                    and return a bool.
     """
-    return np.array([data[index] for index in range(data.shape[0]) if filter((index, data[index]))])
-
-def standardize(x: np.array) -> np.array:
-    return StandardScaler().fit_transform(x)
+    return np.array([array for index, array in enumerate(data) if filter((index, array))])
 
 def binarize(y: np.array) -> np.array:
     return Binarizer().fit_transform(y)
 
-if __name__ == '__main__':
-    from util import accuracy
-    # from sklearn.metrics import accuracy_score as accuracy
-    from clustering import kmeans
-    from time import perf_counter as timer
+class Preprocess:
+    def __init__(self, dropped = [], encoded_features = [1,2,3,7,11,12,13], ordinal = True, permute_map = False, multiclass = False, permute_data = False, random_state = None):
+        """
+        Preprocessing Class
+        
+        If you drop any cols with dropped remember to shift the encoded_features array!
+        """
 
-    encoded_features = [1,2,3,7,11,12,13] # TODO: Update when dropping features!
-    csv_dataframe = load_dataset('tdc_fp/data/heart_disease_uci.csv', drop_columns=['id'])
+        self._csv_dataframe = load_dataset('data/heart_disease_uci.csv', drop_columns=['id',] + dropped)
 
-    # dataset, feature_names = encode_onehot(csv_dataframe, encoded_features)
-    # print(dataset.shape, feature_names)
+        self._encoded_features = encoded_features
 
-    value_map = get_value_map(csv_dataframe.to_numpy(), encoded_features)
+        if random_state is not None:
+            self.seed = random_state
+            np.random.seed(self.seed)
 
-    # Random permutation code
-    # value_map = [np.append(np.random.permutation(a[:-1]), a[-1]) if a[-1] is np.nan else np.random.permutation(a) if i in encoded_features else a for i, a in enumerate(enc.categories_)]
-    
-    # Check all the value map permutations
-    best_score = 0
-    start_time = timer()
-    combinations = value_map_permutations(value_map, encoded_features)
-    print(f"Time taken to compute permutations: {timer() - start_time:.2f} s")
-    for i, combination in enumerate(combinations):
-        dataset, _ = encode_dataset(csv_dataframe.to_numpy(), encoded_features, list(combination))
-        feature_names = csv_dataframe.columns
+        # Encode categorical features as indexed in encoded_features
+        if ordinal:
+            self.value_map = get_value_map(self._csv_dataframe.to_numpy(), self._encoded_features)
+            if permute_map:
+                new_map = []
+                for i, a in enumerate(self.value_map):
+                    if i in self._encoded_features:
+                        if type(a[-1]) == float and np.isnan(a[-1]):
+                            # Also this time, nans gave us headaches!
+                            n = np.random.permutation(a[:-1]).tolist() + [np.nan,]
+                        else: 
+                            n = np.random.permutation(a).tolist()
+                    else: 
+                        n = 0
+                    new_map.append(n)
+                self.value_map = new_map
+            self._dataset, _ = encode_dataset(self._csv_dataframe.to_numpy(), self._encoded_features, self.value_map)
+            self.feature_names = self._csv_dataframe.columns
+        else:
+            self._dataset, self.feature_names = encode_onehot(self._csv_dataframe, self._encoded_features)
 
-        X, Y = split_dataset(filter_dataset(dataset, lambda x: not np.isnan(x[1]).any()))
+        self.X, self.Y = split_dataset(filter_dataset(self._dataset, lambda x: not np.isnan(x[1]).any()))
 
-        X = standardize(X)
-        Y = binarize(Y).ravel()
+        self._standardize()
+        if not multiclass:
+            self.Y = binarize(self.Y)
 
-        labels = kmeans(X)[0]
-        accu = max(accuracy(labels, Y), 1-accuracy(labels, Y))
-        if accu > best_score:
-            best_score = accu
-            best_map = (i, combination)
-            print("Best so far:", best_map[1], best_score)
-    print(best_score, best_map)
+        if permute_data:
+            indexes = np.random.permutation(self.X.shape[0])
+            self.X = self.X[indexes]
+            self.Y = self.Y[indexes]
+
+        print("Dataset is", self.X.dtype, self.X.shape)
+
+        # Flatten Y
+        self.Y = self.Y.ravel()
+
+    def _standardize(self):
+        self._scaler = StandardScaler().fit(self.X)
+        self.X = self._scaler.transform(self.X)
+
+    def rescale(self):
+        """
+        Revert the standardization over X for representation
+        """
+        return self._scaler.inverse_transform(self.X)
