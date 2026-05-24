@@ -43,6 +43,8 @@ def algo_showcase(data: Preprocess, n_clusters: range, algorithm, head: float = 
         
         results.sort(reverse=True, key=lambda cluster: cluster[1])
 
+        print(f"Risk variance: %.2f" % np.array([i[1] for i in results]).var())
+
         # Generate DataFrame
         yield pd.DataFrame(results[:round(head*len(results))])
 
