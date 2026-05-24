@@ -6,7 +6,6 @@ from sklearn.preprocessing import StandardScaler, Binarizer, OneHotEncoder, Ordi
 
 def load_dataset(filename: str, drop_columns: list = None) -> pd.DataFrame:
     data = pd.read_csv(filename, delimiter=",")
-    # Return the data without the `id` column (not useful)
     return data.drop(columns=drop_columns)
 
 def feature_map_encoder(array: np.array, value_map: list) -> None:
@@ -15,10 +14,8 @@ def feature_map_encoder(array: np.array, value_map: list) -> None:
     This function overwrites the given `array`!
     """
     for i in range(len(array)):
-        if type(array[i]) == float and np.isnan(array[i]) and np.isnan(value_map[-1]): 
-            # The value map accounts for nans and is ordered correctly
-            array[i] = len(value_map)
-        else:
+        # Keep nan values in place for further filtering!
+        if not (type(array[i]) == float and np.isnan(array[i])):
             try:
                 # Find the string in the map
                 array[i] = value_map.index(array[i])
@@ -41,7 +38,7 @@ def encode_dataset(data: np.array, encoded_features: list, value_map: list = Non
         # Check if there's a mapping for this feature (zero = non-categorical feature)
         if feature != 0:
             feature_map_encoder(data.T[i], feature)
-            data.T[i] = data.T[i].astype(int)
+            # data.T[i] = data.T[i].astype(int)
 
     # Return the encoded dataset (to float), along with the value map
     # (useful to map the features back to their original value)
@@ -122,14 +119,6 @@ def encode_onehot(dataframe: pd.DataFrame, categorical_features_indexes: list) -
 
     return encoded_data.astype(float), encoded_feature_names
 
-def split_dataset(data: np.array):
-    """
-    Split the dataset into two arrays.
-    The last column is the label set.
-    Reshape the Y array into (n_samples, 1).
-    """
-    return data[:, :-1], data[:, -1].reshape(-1, 1).astype(int)
-
 def filter_dataset(data: np.array, filter: callable) -> np.array:
     """
     This can be used to filter data.
@@ -184,7 +173,8 @@ class Preprocess:
         else:
             self._dataset, self.feature_names = encode_onehot(self._csv_dataframe, self._encoded_features)
 
-        self.X, self.Y = split_dataset(filter_dataset(self._dataset, lambda x: not np.isnan(x[1]).any()))
+        self._dataset = filter_dataset(self._dataset, lambda x: not np.isnan(x[1]).any())
+        self._split_dataset()
 
         self._standardize()
         if not multiclass:
@@ -203,6 +193,14 @@ class Preprocess:
     def _standardize(self):
         self._scaler = StandardScaler().fit(self.X)
         self.X = self._scaler.transform(self.X)
+
+    def _split_dataset(self):
+        """
+        Split the dataset into two arrays.
+        The last column is the label set.
+        Reshape the Y array into (n_samples, 1).
+        """
+        self.X, self.Y = self._dataset[:, :-1], self._dataset[:, -1].reshape(-1, 1).astype(int)
 
     def rescale(self):
         """
