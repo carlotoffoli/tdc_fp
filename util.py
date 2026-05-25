@@ -31,7 +31,7 @@ def plot_clusters(X_pca, labels, title):
         X_pca[:, 0],
         X_pca[:, 1],
         X_pca[:, 2],
-        c=Series(labels.ravel()),
+        c=Series(labels),
         s=40,
     )
 
@@ -48,7 +48,7 @@ def plot_clusters(X_pca, labels, title):
     # Add a legend
     legend1 = ax.legend(
         scatter.legend_elements()[0],
-        [0, 1],
+        np.unique(labels),
         loc="upper right",
         title=title,
     )

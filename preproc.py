@@ -129,6 +129,11 @@ def filter_dataset(data: np.array, filter: callable) -> np.array:
     That should be decided by transposing the array:
      - by rows: normal array
      - by cols: transposed array
+    
+    Note that many actions might be implemented also with plain
+    numpy methods, with a noticeable increase in performance.
+    We preferred this code in terms of maintainability and 
+    the need to reuse it in many circumstances.
 
     @param filter: must decide whether to add a row/col should be kept in data.
                    It must accept a tuple as input (row/col index, data array)
@@ -140,12 +145,15 @@ def binarize(y: np.array) -> np.array:
     return Binarizer().fit_transform(y)
 
 class Preprocess:
-    def __init__(self, dropped = [], encoded_features = [1,2,3,7,11,12,13], ordinal = True, permute_map = False, multiclass = False, permute_data = False, random_state = None):
+    def __init__(self, dropped = [], encoded_features = [1,2,3,7,11,12,13], ordinal = True, permute_map = False, multiclass = False, permute_data = False, random_state = None, only_cleveland = False):
         """
         Preprocessing Class
         
         If you drop any cols with dropped remember to shift the `encoded_features` array!
         """
+
+        if only_cleveland and 'dataset' in dropped:
+            raise ValueError("'dataset' found in `dropped` list while `only_cleveland = True`.\nIf you touch `dropped` you may also change the `encoded_features` list")
 
         self._csv_dataframe = load_dataset('data/heart_disease_uci.csv', drop_columns=['id',] + dropped)
 
@@ -185,6 +193,11 @@ class Preprocess:
             lambda x: 
                 x[1][self.feature_names.index('chol')] != 0 and x[1][self.feature_names.index('trestbps')] != 0
         )
+        # Filter Cleveland
+        if only_cleveland:
+            self._dataset = filter_dataset(self._dataset, lambda x: x[1][2] == self.value_map[2].index('Cleveland'))
+            self._dataset = filter_dataset(self._dataset.T, lambda x: x[0] != 2).T
+
         self._split_dataset()
 
         self._standardize()
