@@ -70,7 +70,10 @@ def get_value_map(data: np.array, encoded_features: list):
 
 def value_map_permutations(value_map: list, encoded_features: list):
     """
-    This function computes all the permutations of the given value map
+    This function computes all the permutations of the given value map.
+    This would have been used to have a measure of the impact of the value map
+    in ordinal encoding mode, by brutely calculating all the scores in 
+    supervised and unsupervised learning.
 
     @param value_map: the value map provided by get_value_map
     @param encoded_features: list of encoded features indexes
@@ -141,7 +144,7 @@ class Preprocess:
         """
         Preprocessing Class
         
-        If you drop any cols with dropped remember to shift the encoded_features array!
+        If you drop any cols with dropped remember to shift the `encoded_features` array!
         """
 
         self._csv_dataframe = load_dataset('data/heart_disease_uci.csv', drop_columns=['id',] + dropped)
@@ -169,11 +172,19 @@ class Preprocess:
                     new_map.append(n)
                 self.value_map = new_map
             self._dataset, _ = encode_dataset(self._csv_dataframe.to_numpy(), self._encoded_features, self.value_map)
-            self.feature_names = self._csv_dataframe.columns
+            self.feature_names = self._csv_dataframe.columns.to_list()
         else:
+            # In onehot mode we might have more samples because of the fact that
+            # we don't actually filter NaNs in categorical features
             self._dataset, self.feature_names = encode_onehot(self._csv_dataframe, self._encoded_features)
 
+        # Filter out NaNs and zero (null) values of 'chol' and 'trestbps'
         self._dataset = filter_dataset(self._dataset, lambda x: not np.isnan(x[1]).any())
+        self._dataset = filter_dataset(
+            self._dataset,
+            lambda x: 
+                x[1][self.feature_names.index('chol')] != 0 and x[1][self.feature_names.index('trestbps')] != 0
+        )
         self._split_dataset()
 
         self._standardize()
@@ -186,6 +197,9 @@ class Preprocess:
             self.Y = self.Y[indexes]
 
         print("Dataset is", self.X.dtype, self.X.shape)
+
+        self.n_samples = self.X.shape[0]
+        self.n_features = self.X.shape[1]
 
         # Flatten Y
         self.Y = self.Y.ravel()
