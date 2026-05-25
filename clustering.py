@@ -27,6 +27,9 @@ def algo_showcase(data: Preprocess, n_clusters: range, algorithm, head: float = 
         yield build_dataframe(data, labels, n, digits, head)
 
 def build_dataframe(data: Preprocess, labels: np.array, n_clusters: int, digits: int = 3, head: float = 1):
+    """
+    Helper function for `algo_showcase`
+    """
     results = []
     
     for i in range(n_clusters):
@@ -61,7 +64,7 @@ def build_dataframe(data: Preprocess, labels: np.array, n_clusters: int, digits:
 
 def plot_inertia(X: np.array, n_max: int = None):
     """
-    This function is used in the elbow method to 
+    This function is used in the Elbow method to 
     select the optimal number of clusters in KMeans.
     
     @param n_max: The maximum number of clusters. Defaults to n_samples
